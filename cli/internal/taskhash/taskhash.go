@@ -267,12 +267,12 @@ func (th *Tracker) calculateDependencyHashes(dependencySet dag.Set) ([]string, e
 func (th *Tracker) CalculateTaskHash(pt *nodes.PackageTask, dependencySet dag.Set, args []string) (string, error) {
 	x := specFromPackageTask(pt)
 	pkgFileHashKey := x.ToKey()
-	fmt.Printf("%s\n", pkgFileHashKey)
 
-	fmt.Printf("pkg %s", x.pkg)
+	fmt.Printf("pkg %s\n", x.pkg)
+	fmt.Printf("pkgFileHashKey: %s\n", pkgFileHashKey)
 
 	for _, x := range th.packageInputsHashes {
-		fmt.Printf(x)
+		fmt.Printf("input hash: %s\n", x)
 	}
 
 	hashOfFiles, ok := th.packageInputsHashes[pkgFileHashKey]
