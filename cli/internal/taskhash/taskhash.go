@@ -176,7 +176,7 @@ func (th *Tracker) CalculateFileHashes(allTasks []dag.Vertex, workerCount int, r
 
 		fmt.Printf("SOMETHING HAPPENING!!!!\n")
 
-		taskDefinition.Inputs = append(taskDefinition.Inputs, "package.json")
+		taskDefinition.Inputs = append(taskDefinition.Inputs, "./package.json")
 
 		for _, value := range taskDefinition.Inputs {
 			fmt.Printf("input: %s\n", value)
@@ -265,8 +265,15 @@ func (th *Tracker) calculateDependencyHashes(dependencySet dag.Set) ([]string, e
 // that it has previously been called on its task-graph dependencies. File hashes must be calculated
 // first.
 func (th *Tracker) CalculateTaskHash(pt *nodes.PackageTask, dependencySet dag.Set, args []string) (string, error) {
-	pkgFileHashKey := specFromPackageTask(pt).ToKey()
+	x := specFromPackageTask(pt)
+	pkgFileHashKey := x.ToKey()
 	fmt.Printf("%s\n", pkgFileHashKey)
+
+	fmt.Printf("pkg %s", x.pkg)
+
+	for _, x := range th.packageInputsHashes {
+		fmt.Printf(x)
+	}
 
 	hashOfFiles, ok := th.packageInputsHashes[pkgFileHashKey]
 	if !ok {
