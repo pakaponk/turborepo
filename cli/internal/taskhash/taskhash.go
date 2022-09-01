@@ -173,6 +173,15 @@ func (th *Tracker) CalculateFileHashes(allTasks []dag.Vertex, workerCount int, r
 		if !ok {
 			return fmt.Errorf("missing pipeline entry %v", taskID)
 		}
+
+		fmt.Printf("SOMETHING HAPPENING!!!!\n")
+
+		taskDefinition.Inputs = append(taskDefinition.Inputs, "package.json")
+
+		for _, value := range taskDefinition.Inputs {
+			fmt.Printf("input: %s\n", value)
+		}
+
 		hashTasks.Add(&packageFileSpec{
 			pkg:    pkgName,
 			inputs: taskDefinition.Inputs,
@@ -185,6 +194,7 @@ func (th *Tracker) CalculateFileHashes(allTasks []dag.Vertex, workerCount int, r
 	for i := 0; i < workerCount; i++ {
 		hashErrs.Go(func() error {
 			for ht := range hashQueue {
+				fmt.Printf("ht %s\n", ht)
 				pkg, ok := th.packageInfos[ht.pkg]
 				if !ok {
 					return fmt.Errorf("cannot find package %v", ht.pkg)
@@ -256,6 +266,8 @@ func (th *Tracker) calculateDependencyHashes(dependencySet dag.Set) ([]string, e
 // first.
 func (th *Tracker) CalculateTaskHash(pt *nodes.PackageTask, dependencySet dag.Set, args []string) (string, error) {
 	pkgFileHashKey := specFromPackageTask(pt).ToKey()
+	fmt.Printf("%s\n", pkgFileHashKey)
+
 	hashOfFiles, ok := th.packageInputsHashes[pkgFileHashKey]
 	if !ok {
 		return "", fmt.Errorf("cannot find package-file hash for %v", pkgFileHashKey)
