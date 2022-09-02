@@ -306,8 +306,8 @@ func (r *run) runOperation(ctx gocontext.Context, g *completeGraph, rs *runSpec,
 	if err != nil {
 		return errors.Wrap(err, "error preparing engine")
 	}
-	hashTracker := taskhash.NewTracker(g.RootNode, g.GlobalHash, g.Pipeline, g.PackageInfos)
-	err = hashTracker.CalculateFileHashes(engine.TaskGraph.Vertices(), rs.Opts.runOpts.concurrency, r.config.Cwd)
+	tracker := taskhash.NewTracker(g.RootNode, g.GlobalHash, g.Pipeline, g.PackageInfos)
+	err = tracker.CalculateFileHashes(engine.TaskGraph.Vertices(), rs.Opts.runOpts.concurrency, r.config.Cwd)
 	if err != nil {
 		return errors.Wrap(err, "error hashing package files")
 	}
@@ -339,7 +339,7 @@ func (r *run) runOperation(ctx gocontext.Context, g *completeGraph, rs *runSpec,
 			}
 		}
 	} else if rs.Opts.runOpts.dryRun {
-		tasksRun, err := r.executeDryRun(ctx, engine, g, hashTracker, rs)
+		tasksRun, err := r.executeDryRun(ctx, engine, g, tracker, rs)
 		if err != nil {
 			return err
 		}
@@ -391,7 +391,7 @@ func (r *run) runOperation(ctx gocontext.Context, g *completeGraph, rs *runSpec,
 		sort.Strings(packagesInScope)
 		r.ui.Output(fmt.Sprintf(ui.Dim("• Packages in scope: %v"), strings.Join(packagesInScope, ", ")))
 		r.ui.Output(fmt.Sprintf("%s %s %s", ui.Dim("• Running"), ui.Dim(ui.Bold(strings.Join(rs.Targets, ", "))), ui.Dim(fmt.Sprintf("in %v packages", rs.FilteredPkgs.Len()))))
-		return r.executeTasks(ctx, g, rs, engine, packageManager, hashTracker, startAt)
+		return r.executeTasks(ctx, g, rs, engine, packageManager, tracker, startAt)
 	}
 	return nil
 }
@@ -779,22 +779,22 @@ type hashedTask struct {
 
 func (r *run) executeDryRun(ctx gocontext.Context, engine *core.Scheduler, g *completeGraph, taskHashes *taskhash.Tracker, rs *runSpec) ([]hashedTask, error) {
 	taskIDs := []hashedTask{}
-	errs := engine.Execute(g.getPackageTaskVisitor(ctx, func(ctx gocontext.Context, pt *nodes.PackageTask) error {
-		passThroughArgs := rs.ArgsForTask(pt.Task)
-		deps := engine.TaskGraph.DownEdges(pt.TaskID)
-		hash, err := taskHashes.CalculateTaskHash(pt, deps, passThroughArgs)
+	errs := engine.Execute(g.getPackageTaskVisitor(ctx, func(ctx gocontext.Context, packageTask *nodes.PackageTask) error {
+		passThroughArgs := rs.ArgsForTask(packageTask.Task)
+		deps := engine.TaskGraph.DownEdges(packageTask.TaskID)
+		hash, err := taskHashes.CalculateTaskHash(packageTask, deps, passThroughArgs)
 		if err != nil {
 			return err
 		}
-		command, ok := pt.Command()
+		command, ok := packageTask.Command()
 		if !ok {
 			command = "<NONEXISTENT>"
 		}
-		isRootTask := pt.PackageName == util.RootPkgName
+		isRootTask := packageTask.PackageName == util.RootPkgName
 		if isRootTask && commandLooksLikeTurbo(command) {
-			return fmt.Errorf("root task %v (%v) looks like it invokes turbo and might cause a loop", pt.Task, command)
+			return fmt.Errorf("root task %v (%v) looks like it invokes turbo and might cause a loop", packageTask.Task, command)
 		}
-		ancestors, err := engine.TaskGraph.Ancestors(pt.TaskID)
+		ancestors, err := engine.TaskGraph.Ancestors(packageTask.TaskID)
 		if err != nil {
 			return err
 		}
@@ -805,7 +805,7 @@ func (r *run) executeDryRun(ctx gocontext.Context, engine *core.Scheduler, g *co
 				stringAncestors = append(stringAncestors, dep.(string))
 			}
 		}
-		descendents, err := engine.TaskGraph.Descendents(pt.TaskID)
+		descendents, err := engine.TaskGraph.Descendents(packageTask.TaskID)
 		if err != nil {
 			return err
 		}
@@ -819,14 +819,14 @@ func (r *run) executeDryRun(ctx gocontext.Context, engine *core.Scheduler, g *co
 		sort.Strings(stringDescendents)
 
 		taskIDs = append(taskIDs, hashedTask{
-			TaskID:       pt.TaskID,
-			Task:         pt.Task,
-			Package:      pt.PackageName,
+			TaskID:       packageTask.TaskID,
+			Task:         packageTask.Task,
+			Package:      packageTask.PackageName,
 			Hash:         hash,
 			Command:      command,
-			Dir:          pt.Pkg.Dir.ToString(),
-			Outputs:      pt.TaskDefinition.Outputs,
-			LogFile:      pt.RepoRelativeLogFile(),
+			Dir:          packageTask.Pkg.Dir.ToString(),
+			Outputs:      packageTask.TaskDefinition.Outputs,
+			LogFile:      packageTask.RepoRelativeLogFile(),
 			Dependencies: stringAncestors,
 			Dependents:   stringDescendents,
 		})
